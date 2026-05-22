@@ -365,6 +365,35 @@ button {
   white-space: nowrap;
 }
 
+.exportNote {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  color: #f7efe7;
+  background: rgba(226, 72, 72, 0.12);
+  border: 1px solid rgba(240, 100, 100, 0.36);
+  border-radius: 8px;
+}
+
+.exportNoteHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff8f8f;
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.exportNoteBody {
+  min-width: 0;
+  color: #e0d7ce;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .downloadLink {
   color: #0c1514;
   background: var(--teal);

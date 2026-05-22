@@ -1,4 +1,4 @@
-import { Download, Loader2 } from "lucide-react";
+import { CircleAlert, Download, Loader2 } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { EXPORT_FPS_PRESETS, EXPORT_HEIGHT_PRESETS, MAX_EXPORT_SPEED, MIN_EXPORT_SPEED } from "../../constants";
 import { clamp } from "../../lib/math";
@@ -53,7 +53,8 @@ export function ExportPanel({
   setExportSpeed
 }: ExportPanelProps) {
   const shouldShowProgress = isExporting && exportProgress > 0;
-  const shouldShowStatus = isExporting || (Boolean(exportStatus) && exportStatus !== "Ready");
+  const shouldShowStatus = isExporting && Boolean(exportStatus);
+  const shouldShowErrorNote = !isExporting && Boolean(exportStatus) && exportStatus !== "Ready";
   const downloadUrl = exportResultFormat === exportFormat ? exportUrl : null;
   const speedSliderValue = clamp((Math.log2(exportSpeed) / SPEED_SLIDER_RANGE) * 100, -100, 100);
 
@@ -124,6 +125,15 @@ export function ExportPanel({
       </ExportButton>
       {shouldShowProgress ? <ProgressBar value={exportProgress} /> : null}
       {shouldShowStatus ? <div className="exportStatus">{exportStatus}</div> : null}
+      {shouldShowErrorNote ? (
+        <div className="exportNote" role="alert">
+          <div className="exportNoteHeader">
+            <CircleAlert size={16} />
+            <span>Error</span>
+          </div>
+          <div className="exportNoteBody">{exportStatus}</div>
+        </div>
+      ) : null}
       {downloadUrl ? (
         <a className="downloadLink" download={`loopcut.${exportFormat}`} href={downloadUrl}>
           <Download size={16} />

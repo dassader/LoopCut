@@ -26,7 +26,9 @@ function App() {
   const editor = useVideoEditor();
   const exporter = useExporter({
     file: editor.file,
-    segments: editor.segments
+    segments: editor.segments,
+    sourceHeight: editor.sourceHeight,
+    sourceWidth: editor.sourceWidth
   });
   const { thumbnails } = useThumbnails(editor.videoUrl, editor.duration);
   const { setExportHeight } = exporter;

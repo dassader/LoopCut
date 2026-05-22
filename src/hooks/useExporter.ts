@@ -17,6 +17,8 @@ import type { ExportFormat, Segment } from "../types";
 type UseExporterOptions = {
   file: File | null;
   segments: Segment[];
+  sourceHeight: number | null;
+  sourceWidth: number | null;
 };
 
 type ExportTiming = {
@@ -38,6 +40,7 @@ type MountedInputFile = {
 
 const WORKERFS_UNSUPPORTED_MESSAGE =
   "WORKERFS is not supported in this browser. Export needs a browser with ffmpeg.wasm WORKERFS support.";
+const GIF_BROWSER_PIXEL_FRAME_LIMIT = 420_000_000;
 
 const formatFFmpegNumber = (value: number) => Number(value.toFixed(6)).toString();
 
@@ -62,6 +65,33 @@ const normalizeExportFps = (value: number) => {
 
 const normalizeExportSpeed = (value: number) =>
   clamp(Number.isFinite(value) ? value : MIN_EXPORT_SPEED, MIN_EXPORT_SPEED, MAX_EXPORT_SPEED);
+
+const estimateOutputWidth = (height: number, sourceWidth: number | null, sourceHeight: number | null) => {
+  const aspectRatio =
+    sourceWidth && sourceHeight && sourceWidth > 0 && sourceHeight > 0 ? sourceWidth / sourceHeight : 16 / 9;
+
+  return Math.max(2, Math.round((height * aspectRatio) / 2) * 2);
+};
+
+const gifBrowserLimitMessage = (
+  format: ExportFormat,
+  timing: ExportTiming,
+  height: number,
+  sourceWidth: number | null,
+  sourceHeight: number | null
+) => {
+  if (format !== "gif") {
+    return null;
+  }
+
+  const width = estimateOutputWidth(height, sourceWidth, sourceHeight);
+  const pixelFrames = width * height * timing.frameCount;
+  if (pixelFrames <= GIF_BROWSER_PIXEL_FRAME_LIMIT) {
+    return null;
+  }
+
+  return `GIF ${width}x${height} at ${Math.round(timing.correctedFps)} FPS is too large for browser memory. Use WebP or lower Height/FPS.`;
+};
 
 const fileExtension = (fileName: string) => {
   const extension = fileName.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase();
@@ -195,7 +225,7 @@ const latestFFmpegError = (lines: string[]) =>
     .reverse()
     .find((line) => /error|invalid|failed|unable|cannot|no such|not found|could not/i.test(line));
 
-export function useExporter({ file, segments }: UseExporterOptions) {
+export function useExporter({ file, segments, sourceHeight, sourceWidth }: UseExporterOptions) {
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [exportFormat, setExportFormatState] = useState<ExportFormat>("webp");
   const [exportFps, setExportFpsState] = useState(normalizeExportFps(DEFAULT_EXPORT_FPS));
@@ -405,16 +435,24 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       return;
     }
 
-    clearExportResult();
-    setIsExporting(true);
-    setExportProgress(0.01);
-    setExportStatus("Loading ffmpeg.wasm");
     const renderFormat = exportFormat;
     const renderFps = normalizeExportFps(exportFps);
     const renderHeight = normalizeExportHeight(exportHeight);
     const renderQuality = clamp(Number.isFinite(exportQuality) ? exportQuality : 76, 10, 100);
     const renderSpeed = normalizeExportSpeed(exportSpeed);
     const timing = buildExportTiming(segments, renderFps, renderSpeed);
+    const limitMessage = gifBrowserLimitMessage(renderFormat, timing, renderHeight, sourceWidth, sourceHeight);
+    if (limitMessage) {
+      clearExportResult();
+      setExportProgress(0);
+      setExportStatus(limitMessage);
+      return;
+    }
+
+    clearExportResult();
+    setIsExporting(true);
+    setExportProgress(0.01);
+    setExportStatus("Loading ffmpeg.wasm");
     renderDurationRef.current = timing.duration;
     renderFrameCountRef.current = timing.frameCount;
     renderProgressRef.current = 0;
@@ -541,7 +579,9 @@ export function useExporter({ file, segments }: UseExporterOptions) {
     file,
     isExporting,
     loadFFmpeg,
-    segments
+    segments,
+    sourceHeight,
+    sourceWidth
   ]);
 
   return {

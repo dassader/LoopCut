@@ -16,8 +16,11 @@ export default defineConfig({
     react(),
     VitePWA({
       base,
+      filename: "sw.ts",
       injectRegister: null,
       registerType: "autoUpdate",
+      srcDir: "src",
+      strategies: "injectManifest",
       includeAssets: [
         "favicon.png",
         "favicon-16.png",
@@ -51,7 +54,7 @@ export default defineConfig({
           }))
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ["**/*.{html,js,css,png,wasm}"],
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024
       }

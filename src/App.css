@@ -160,6 +160,13 @@ button {
   background: #000000;
 }
 
+.emptyState {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(360px, 82vw);
+}
+
 .emptyPicker {
   display: grid;
   place-items: center;
@@ -191,6 +198,33 @@ button {
 
 .emptyPickerHint svg {
   color: #65a6ff;
+}
+
+.viewerError {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  padding: 10px 12px;
+  color: #ffd9d9;
+  background: rgba(120, 27, 27, 0.28);
+  border: 1px solid rgba(226, 72, 72, 0.52);
+  border-radius: 8px;
+}
+
+.viewerErrorHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.viewerErrorBody {
+  color: #f3caca;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .viewerHud {
@@ -289,8 +323,11 @@ button {
     #11100f;
 }
 
-.field input[type="range"] {
+.field > input[type="range"] {
+  width: calc(100% - 10px);
+  margin: 0;
   padding: 0;
+  justify-self: start;
   accent-color: var(--red);
 }
 
@@ -299,7 +336,15 @@ button {
   grid-template-columns: minmax(0, 1fr) 42px;
   align-items: center;
   gap: 8px;
+  width: calc(100% - 10px);
   min-width: 0;
+}
+
+.rangeValue input[type="range"] {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--red);
 }
 
 .rangeValue span {
@@ -597,6 +642,28 @@ button {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.16),
     0 0 12px rgba(226, 72, 72, 0.44);
+}
+
+.timelineTimeTooltip {
+  position: absolute;
+  top: 8px;
+  z-index: 7;
+  min-width: 116px;
+  min-height: 28px;
+  padding: 6px 9px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  pointer-events: none;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
 }
 
 @media (max-width: 720px) {

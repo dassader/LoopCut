@@ -1,7 +1,9 @@
 import type { PointerEvent, RefObject, WheelEvent } from "react";
+import { useCallback, useState } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { MAX_ZOOM, MIN_ZOOM } from "../../constants";
-import { outputTimeToTimelineX } from "../../lib/timeline";
+import { formatClockTime } from "../../lib/time";
+import { outputTimeToTimelineX, timelineDuration, timelineXToOutputTime } from "../../lib/timeline";
 import type { DropMarker, Segment, Thumbnail } from "../../types";
 import { TimelineClip } from "./TimelineClip";
 import { TimelineEditControls } from "./TimelineEditControls";
@@ -60,6 +62,50 @@ export function Timeline({
   zoom
 }: TimelineProps) {
   const playheadX = outputTimeToTimelineX(segments, currentOutputTime, zoom);
+  const totalDuration = timelineDuration(segments);
+  const [hoverTime, setHoverTime] = useState<{ time: number; x: number } | null>(null);
+
+  const updateHoverTime = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const viewport = timelineRef.current;
+      if (!viewport || !hasVideo || !segments.length) {
+        setHoverTime(null);
+        return;
+      }
+
+      const rect = viewport.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const pointerX = viewport.scrollLeft + localX;
+      const time = timelineXToOutputTime(segments, pointerX, zoom);
+      const x = outputTimeToTimelineX(segments, time, zoom);
+
+      setHoverTime({ time, x });
+    },
+    [hasVideo, segments, timelineRef, zoom]
+  );
+
+  const clearHoverTime = useCallback(() => setHoverTime(null), []);
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      updateHoverTime(event);
+      onPointerMove(event);
+    },
+    [onPointerMove, updateHoverTime]
+  );
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      updateHoverTime(event);
+      onPointerDown(event);
+    },
+    [onPointerDown, updateHoverTime]
+  );
+
+  const handlePointerCancel = useCallback(() => {
+    clearHoverTime();
+    onPointerCancel();
+  }, [clearHoverTime, onPointerCancel]);
 
   return (
     <section className="timelineArea">
@@ -89,9 +135,10 @@ export function Timeline({
 
       <div
         className="timelineViewport"
-        onPointerCancel={onPointerCancel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerLeave={clearHoverTime}
+        onPointerMove={handlePointerMove}
         onPointerUp={onPointerUp}
         onWheel={onWheel}
         ref={timelineRef}
@@ -118,6 +165,12 @@ export function Timeline({
           {hasVideo && segments.length ? (
             <div className="playhead" style={{ left: playheadX }}>
               <div className="playheadLine" />
+            </div>
+          ) : null}
+
+          {hasVideo && segments.length && hoverTime ? (
+            <div className="timelineTimeTooltip" style={{ left: hoverTime.x }}>
+              {formatClockTime(Math.min(Math.max(hoverTime.time, 0), totalDuration))}
             </div>
           ) : null}
         </div>

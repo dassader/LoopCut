@@ -27,12 +27,17 @@ export function useVideoEditor() {
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const currentOutputRef = useRef(0);
   const playingRef = useRef(false);
+  const pendingScrubSourceTimeRef = useRef<number | null>(null);
+  const scrubFrameRef = useRef<number | null>(null);
+  const lastScrubSeekAtRef = useRef(0);
+  const suppressScrubSyncRef = useRef(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [sourceWidth, setSourceWidth] = useState<number | null>(null);
   const [sourceHeight, setSourceHeight] = useState<number | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [currentOutputTime, setCurrentOutputTime] = useState(0);
@@ -62,11 +67,57 @@ export function useVideoEditor() {
     };
   }, [videoUrl]);
 
+  const cancelScheduledScrubSeek = useCallback(() => {
+    pendingScrubSourceTimeRef.current = null;
+    if (scrubFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrubFrameRef.current);
+      scrubFrameRef.current = null;
+    }
+  }, []);
+
+  const requestScrubSeekFrame = useCallback(() => {
+    if (scrubFrameRef.current !== null) {
+      return;
+    }
+
+    scrubFrameRef.current = window.requestAnimationFrame(() => {
+      scrubFrameRef.current = null;
+
+      const sourceTime = pendingScrubSourceTimeRef.current;
+      const video = videoRef.current;
+      if (sourceTime === null || !video) {
+        return;
+      }
+
+      const now = performance.now();
+      if (video.seeking || now - lastScrubSeekAtRef.current < 32) {
+        requestScrubSeekFrame();
+        return;
+      }
+
+      pendingScrubSourceTimeRef.current = null;
+      if (Math.abs(video.currentTime - sourceTime) > 0.018) {
+        lastScrubSeekAtRef.current = now;
+        video.currentTime = sourceTime;
+      }
+    });
+  }, []);
+
+  const scheduleScrubVideoSeek = useCallback(
+    (sourceTime: number) => {
+      pendingScrubSourceTimeRef.current = sourceTime;
+      requestScrubSeekFrame();
+    },
+    [requestScrubSeekFrame]
+  );
+
   const seekToOutputTime = useCallback(
     (time: number) => {
       const clamped = clamp(time, 0, totalDuration);
+      suppressScrubSyncRef.current = false;
+      currentOutputRef.current = clamped;
+      cancelScheduledScrubSeek();
       setCurrentOutputTime(clamped);
-
       const hit = findTimelineHit(segments, clamped);
       const video = videoRef.current;
 
@@ -77,23 +128,47 @@ export function useVideoEditor() {
         }
       }
     },
-    [duration, segments, totalDuration]
+    [cancelScheduledScrubSeek, duration, segments, totalDuration]
+  );
+
+  const scrubToOutputTime = useCallback(
+    (time: number) => {
+      const clamped = clamp(time, 0, totalDuration);
+      suppressScrubSyncRef.current = true;
+      currentOutputRef.current = clamped;
+      setCurrentOutputTime(clamped);
+
+      const hit = findTimelineHit(segments, clamped);
+      const video = videoRef.current;
+      if (!video || !hit || !Number.isFinite(hit.sourceTime)) {
+        cancelScheduledScrubSeek();
+        return;
+      }
+
+      scheduleScrubVideoSeek(clamp(hit.sourceTime, 0, duration || hit.sourceTime));
+    },
+    [cancelScheduledScrubSeek, duration, scheduleScrubVideoSeek, segments, totalDuration]
   );
 
   useEffect(() => {
     if (!isPlaying) {
+      if (suppressScrubSyncRef.current) {
+        return;
+      }
       seekToOutputTime(currentOutputTime);
     }
   }, [currentOutputTime, isPlaying, seekToOutputTime, segments]);
 
-  const loadFile = useCallback((nextFile: File) => {
-    if (!nextFile.type.startsWith("video/")) {
-      return;
-    }
+  useEffect(() => cancelScheduledScrubSeek, [cancelScheduledScrubSeek]);
 
-    const nextUrl = URL.createObjectURL(nextFile);
-    setFile(nextFile);
-    setVideoUrl(nextUrl);
+  const resetVideoState = useCallback(() => {
+    suppressScrubSyncRef.current = false;
+    currentOutputRef.current = 0;
+    playingRef.current = false;
+    cancelScheduledScrubSeek();
+    videoRef.current?.pause();
+    setFile(null);
+    setVideoUrl(null);
     setDuration(0);
     setSourceWidth(null);
     setSourceHeight(null);
@@ -101,7 +176,31 @@ export function useVideoEditor() {
     setSelectedSegmentId(null);
     setCurrentOutputTime(0);
     setIsPlaying(false);
-  }, []);
+  }, [cancelScheduledScrubSeek]);
+
+  const failVideoLoad = useCallback(
+    (message: string) => {
+      resetVideoState();
+      setVideoError(message);
+    },
+    [resetVideoState]
+  );
+
+  const loadFile = useCallback(
+    (nextFile: File) => {
+      if (nextFile.type && !nextFile.type.startsWith("video/")) {
+        failVideoLoad("Unsupported file type. Choose a video file.");
+        return;
+      }
+
+      const nextUrl = URL.createObjectURL(nextFile);
+      resetVideoState();
+      setVideoError(null);
+      setFile(nextFile);
+      setVideoUrl(nextUrl);
+    },
+    [failVideoLoad, resetVideoState]
+  );
 
   const onLoadedMetadata = useCallback(() => {
     const video = videoRef.current;
@@ -112,6 +211,11 @@ export function useVideoEditor() {
     const nextDuration = Number.isFinite(video.duration) ? video.duration : 0;
     const nextWidth = video.videoWidth || null;
     const nextHeight = video.videoHeight || null;
+    if (nextDuration <= 0 || !nextWidth || !nextHeight) {
+      failVideoLoad("This video could not be opened. The file may be unsupported or damaged.");
+      return;
+    }
+
     const firstSegment: Segment = {
       id: uid(),
       sourceStart: 0,
@@ -125,7 +229,12 @@ export function useVideoEditor() {
     setSegments(nextDuration > 0 ? [firstSegment] : []);
     setSelectedSegmentId(nextDuration > 0 ? firstSegment.id : null);
     setCurrentOutputTime(0);
-  }, []);
+    setVideoError(null);
+  }, [failVideoLoad]);
+
+  const onVideoError = useCallback(() => {
+    failVideoLoad("This video could not be opened. The file may be unsupported or damaged.");
+  }, [failVideoLoad]);
 
   const cutAtPlayhead = useCallback(() => {
     if (!segments.length) {
@@ -264,6 +373,7 @@ export function useVideoEditor() {
 
       const nextHit = findTimelineHit(segments, nextOutputTime + 0.001);
       if (nextHit) {
+        currentOutputRef.current = nextOutputTime;
         setCurrentOutputTime(nextOutputTime);
         video.currentTime = nextHit.segment.sourceStart;
         void video.play();
@@ -273,7 +383,9 @@ export function useVideoEditor() {
 
     const nextOutputTime =
       hit.clipStart + clamp(video.currentTime - hit.segment.sourceStart, 0, segmentDuration(hit.segment));
-    setCurrentOutputTime(clamp(nextOutputTime, 0, totalDuration));
+    const clampedOutputTime = clamp(nextOutputTime, 0, totalDuration);
+    currentOutputRef.current = clampedOutputTime;
+    setCurrentOutputTime(clampedOutputTime);
   }, [seekToOutputTime, segments, totalDuration]);
 
   const outputTimeFromTimelineEvent = useCallback(
@@ -305,15 +417,20 @@ export function useVideoEditor() {
 
   const onTimelinePointerMove = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (isPlaying) {
+      if (playingRef.current) {
         videoRef.current?.pause();
+        playingRef.current = false;
         setIsPlaying(false);
       }
 
-      seekToOutputTime(outputTimeFromTimelineEvent(event));
+      scrubToOutputTime(outputTimeFromTimelineEvent(event));
     },
-    [isPlaying, outputTimeFromTimelineEvent, seekToOutputTime]
+    [outputTimeFromTimelineEvent, scrubToOutputTime]
   );
+
+  const onTimelinePointerUp = useCallback(() => {
+    seekToOutputTime(currentOutputRef.current);
+  }, [seekToOutputTime]);
 
   const onTimelineWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -378,6 +495,7 @@ export function useVideoEditor() {
   return {
     file,
     videoUrl,
+    videoError,
     duration,
     sourceWidth,
     sourceHeight,
@@ -401,13 +519,14 @@ export function useVideoEditor() {
     timelineRef,
     loadFile,
     onLoadedMetadata,
+    onVideoError,
     cutAtPlayhead,
     removeSelected,
     togglePlayback,
     onVideoTimeUpdate,
     onTimelinePointerDown,
     onTimelinePointerMove,
-    onTimelinePointerUp: () => undefined,
+    onTimelinePointerUp,
     onTimelineWheel,
     moveSegment
   };

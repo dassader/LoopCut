@@ -28,7 +28,8 @@ function App() {
     file: editor.file,
     segments: editor.segments,
     sourceHeight: editor.sourceHeight,
-    sourceWidth: editor.sourceWidth
+    sourceWidth: editor.sourceWidth,
+    videoElement: editor.videoRef.current
   });
   const { thumbnails } = useThumbnails(editor.videoUrl, editor.duration);
   const { setExportHeight } = exporter;
@@ -76,7 +77,9 @@ function App() {
           onChooseVideo={chooseVideo}
           onLoadedMetadata={editor.onLoadedMetadata}
           onTimeUpdate={editor.onVideoTimeUpdate}
+          onVideoError={editor.onVideoError}
           setIsPlaying={editor.setIsPlaying}
+          videoError={editor.videoError}
           videoRef={editor.videoRef}
           videoUrl={editor.videoUrl}
         />
@@ -87,16 +90,16 @@ function App() {
             setFps={editor.setFps}
           />
           <ExportPanel
+            cancelExport={exporter.cancelExport}
             exportFormat={exporter.exportFormat}
             exportFps={exporter.exportFps}
             exportProgress={exporter.exportProgress}
             exportQuality={exporter.exportQuality}
-            exportResultFormat={exporter.exportResultFormat}
             exportSpeed={exporter.exportSpeed}
             exportStatus={exporter.exportStatus}
             exportTimeline={exporter.exportTimeline}
-            exportUrl={exporter.exportUrl}
             exportHeight={exporter.exportHeight}
+            gifColorCount={exporter.gifColorCount}
             hasFile={Boolean(editor.file)}
             isExporting={exporter.isExporting}
             segmentsCount={editor.segments.length}
@@ -105,6 +108,7 @@ function App() {
             setExportQuality={exporter.setExportQuality}
             setExportSpeed={exporter.setExportSpeed}
             setExportHeight={exporter.setExportHeight}
+            setGifColorCount={exporter.setGifColorCount}
           />
         </SidePanel>
       </section>

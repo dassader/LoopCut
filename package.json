@@ -9,8 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ffmpeg/core": "0.12.10",
-    "@ffmpeg/ffmpeg": "0.12.15",
     "@vitejs/plugin-react": "4.7.0",
     "lucide-react": "latest",
     "react": "latest",

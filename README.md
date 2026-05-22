@@ -2,6 +2,8 @@
 
 Browser-based video cutter for creating short animated WebP and GIF loops
 
+<img width="940" height="480" src="https://github.com/user-attachments/assets/a6458b66-41a4-48c8-abf1-fc1afdcc626d" />
+
 ## Use Online
 
 Open the app in your browser:

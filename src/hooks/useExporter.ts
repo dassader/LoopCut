@@ -3,7 +3,13 @@ import ffmpegWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
 import coreURL from "@ffmpeg/core?url";
 import wasmURL from "@ffmpeg/core/wasm?url";
 import { type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_FPS, MIN_EXPORT_WIDTH } from "../constants";
+import {
+  DEFAULT_EXPORT_FPS,
+  EXPORT_FPS_PRESETS,
+  EXPORT_HEIGHT_PRESETS,
+  MAX_EXPORT_SPEED,
+  MIN_EXPORT_SPEED
+} from "../constants";
 import { clamp } from "../lib/math";
 import { timelineDuration } from "../lib/timeline";
 import type { ExportFormat, Segment } from "../types";
@@ -38,7 +44,24 @@ const formatFFmpegNumber = (value: number) => Number(value.toFixed(6)).toString(
 const resolveStateAction = <T,>(action: SetStateAction<T>, current: T) =>
   typeof action === "function" ? (action as (value: T) => T)(current) : action;
 
-const normalizeExportWidth = (value: number) => Math.max(MIN_EXPORT_WIDTH, Math.round(value));
+const normalizeExportHeight = (value: number) => {
+  const safeValue = Number.isFinite(value) ? value : 720;
+
+  return EXPORT_HEIGHT_PRESETS.reduce((closest, preset) =>
+    Math.abs(preset - safeValue) < Math.abs(closest - safeValue) ? preset : closest
+  );
+};
+
+const normalizeExportFps = (value: number) => {
+  const safeValue = Number.isFinite(value) ? value : DEFAULT_EXPORT_FPS;
+
+  return EXPORT_FPS_PRESETS.reduce((closest, preset) =>
+    Math.abs(preset - safeValue) < Math.abs(closest - safeValue) ? preset : closest
+  );
+};
+
+const normalizeExportSpeed = (value: number) =>
+  clamp(Number.isFinite(value) ? value : MIN_EXPORT_SPEED, MIN_EXPORT_SPEED, MAX_EXPORT_SPEED);
 
 const fileExtension = (fileName: string) => {
   const extension = fileName.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase();
@@ -92,8 +115,8 @@ const mountInputFile = async (ffmpeg: FFmpeg, file: File, prefix: string): Promi
   }
 };
 
-const buildExportTiming = (segments: Segment[], requestedFps: number): ExportTiming => {
-  const duration = Math.max(timelineDuration(segments), 0.001);
+const buildExportTiming = (segments: Segment[], requestedFps: number, speed: number): ExportTiming => {
+  const duration = Math.max(timelineDuration(segments) / speed, 0.001);
   const frameCount = Math.max(1, Math.round(duration * requestedFps));
   const correctedFps = frameCount / duration;
   const targetDurationCentiseconds = Math.max(1, Math.round(duration * 100));
@@ -175,9 +198,10 @@ const latestFFmpegError = (lines: string[]) =>
 export function useExporter({ file, segments }: UseExporterOptions) {
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [exportFormat, setExportFormatState] = useState<ExportFormat>("webp");
-  const [exportFps, setExportFpsState] = useState(DEFAULT_FPS);
-  const [exportWidth, setExportWidthState] = useState(720);
+  const [exportFps, setExportFpsState] = useState(normalizeExportFps(DEFAULT_EXPORT_FPS));
+  const [exportHeight, setExportHeightState] = useState(720);
   const [exportQuality, setExportQualityState] = useState(76);
+  const [exportSpeed, setExportSpeedState] = useState(1);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState("");
@@ -185,14 +209,17 @@ export function useExporter({ file, segments }: UseExporterOptions) {
   const [exportResultFormat, setExportResultFormat] = useState<ExportFormat | null>(null);
   const exportFormatRef = useRef(exportFormat);
   const exportFpsRef = useRef(exportFps);
-  const exportWidthRef = useRef(exportWidth);
+  const exportHeightRef = useRef(exportHeight);
   const exportQualityRef = useRef(exportQuality);
+  const exportSpeedRef = useRef(exportSpeed);
   const renderDurationRef = useRef(0);
   const renderFrameCountRef = useRef(0);
   const renderProgressRef = useRef(0);
+  const renderStartedAtRef = useRef(0);
+  const didSeeLowRenderSampleRef = useRef(false);
   const lastLogLinesRef = useRef<string[]>([]);
 
-  const clearExport = useCallback(() => {
+  const clearExportResult = useCallback(() => {
     setExportUrl((current) => {
       if (current) {
         URL.revokeObjectURL(current);
@@ -200,28 +227,34 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       return null;
     });
     setExportResultFormat(null);
+  }, []);
+
+  const clearExport = useCallback(() => {
+    clearExportResult();
     setExportStatus("");
     setExportProgress(0);
-  }, []);
+  }, [clearExportResult]);
 
   const setExportFormat = useCallback(
     (format: ExportFormat) => {
-      const nextWidth = normalizeExportWidth(exportWidthRef.current);
+      const currentFormat = exportFormatRef.current;
+      const currentHeight = normalizeExportHeight(exportHeightRef.current);
+      const nextHeight = currentHeight;
 
-      if (format !== exportFormatRef.current || nextWidth !== exportWidthRef.current) {
+      if (format !== currentFormat || nextHeight !== exportHeightRef.current) {
         clearExport();
       }
       exportFormatRef.current = format;
-      exportWidthRef.current = nextWidth;
+      exportHeightRef.current = nextHeight;
       setExportFormatState(format);
-      setExportWidthState(nextWidth);
+      setExportHeightState(nextHeight);
     },
     [clearExport]
   );
 
   const setExportFps = useCallback(
     (value: SetStateAction<number>) => {
-      const nextValue = resolveStateAction(value, exportFpsRef.current);
+      const nextValue = normalizeExportFps(resolveStateAction(value, exportFpsRef.current));
       if (nextValue !== exportFpsRef.current) {
         clearExport();
       }
@@ -231,14 +264,14 @@ export function useExporter({ file, segments }: UseExporterOptions) {
     [clearExport]
   );
 
-  const setExportWidth = useCallback(
+  const setExportHeight = useCallback(
     (value: SetStateAction<number>) => {
-      const nextValue = normalizeExportWidth(resolveStateAction(value, exportWidthRef.current));
-      if (nextValue !== exportWidthRef.current) {
+      const nextValue = normalizeExportHeight(resolveStateAction(value, exportHeightRef.current));
+      if (nextValue !== exportHeightRef.current) {
         clearExport();
       }
-      exportWidthRef.current = nextValue;
-      setExportWidthState(nextValue);
+      exportHeightRef.current = nextValue;
+      setExportHeightState(nextValue);
     },
     [clearExport]
   );
@@ -255,12 +288,25 @@ export function useExporter({ file, segments }: UseExporterOptions) {
     [clearExport]
   );
 
+  const setExportSpeed = useCallback(
+    (value: SetStateAction<number>) => {
+      const nextValue = normalizeExportSpeed(resolveStateAction(value, exportSpeedRef.current));
+      if (nextValue !== exportSpeedRef.current) {
+        clearExport();
+      }
+      exportSpeedRef.current = nextValue;
+      setExportSpeedState(nextValue);
+    },
+    [clearExport]
+  );
+
   useEffect(() => {
     exportFormatRef.current = exportFormat;
     exportFpsRef.current = exportFps;
-    exportWidthRef.current = exportWidth;
+    exportHeightRef.current = exportHeight;
     exportQualityRef.current = exportQuality;
-  }, [exportFormat, exportFps, exportQuality, exportWidth]);
+    exportSpeedRef.current = exportSpeed;
+  }, [exportFormat, exportFps, exportHeight, exportQuality, exportSpeed]);
 
   useEffect(() => {
     return () => {
@@ -275,7 +321,18 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       return;
     }
 
-    const nextProgress = clamp(0.1 + clamp(encodedProgress, 0, 1) * 0.86, 0.1, 0.96);
+    const clampedEncodedProgress = clamp(encodedProgress, 0, 1);
+    const elapsedMs = performance.now() - renderStartedAtRef.current;
+
+    if (!didSeeLowRenderSampleRef.current && clampedEncodedProgress > 0.25 && elapsedMs < 1500) {
+      return;
+    }
+
+    if (clampedEncodedProgress <= 0.25) {
+      didSeeLowRenderSampleRef.current = true;
+    }
+
+    const nextProgress = clamp(0.1 + clampedEncodedProgress * 0.86, 0.1, 0.96);
     renderProgressRef.current = Math.max(renderProgressRef.current, nextProgress);
     setExportProgress(renderProgressRef.current);
     setExportStatus(`Rendering ${Math.round(renderProgressRef.current * 100)}%`);
@@ -287,11 +344,6 @@ export function useExporter({ file, segments }: UseExporterOptions) {
     }
 
     const ffmpeg = new FFmpeg();
-    ffmpeg.on("progress", ({ progress }) => {
-      if (renderDurationRef.current > 0) {
-        updateRenderProgress(progress);
-      }
-    });
     ffmpeg.on("log", ({ message }) => {
       lastLogLinesRef.current = [...lastLogLinesRef.current.slice(-24), message];
       const sample = parseFFmpegProgressSample(message);
@@ -318,18 +370,19 @@ export function useExporter({ file, segments }: UseExporterOptions) {
   }, [updateRenderProgress]);
 
   const buildExportFilter = useCallback(
-    (format: ExportFormat, timing: ExportTiming, width: number) => {
+    (format: ExportFormat, timing: ExportTiming, height: number, speed: number) => {
       const parts: string[] = [];
+      const setPts = `(PTS-STARTPTS)/${formatFFmpegNumber(speed)}`;
       segments.forEach((segment, index) => {
         parts.push(
           `[0:v]trim=start=${segment.sourceStart.toFixed(4)}:end=${segment.sourceEnd.toFixed(
             4
-          )},setpts=PTS-STARTPTS[v${index}]`
+          )},setpts=${setPts}[v${index}]`
         );
       });
 
       const concatInputs = segments.map((_, index) => `[v${index}]`).join("");
-      const resized = `fps=${formatFFmpegNumber(timing.correctedFps)},scale=${width}:-2:flags=lanczos`;
+      const resized = `fps=${formatFFmpegNumber(timing.correctedFps)},scale=-2:${height}:flags=lanczos`;
 
       if (format === "gif") {
         parts.push(
@@ -352,19 +405,24 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       return;
     }
 
+    clearExportResult();
     setIsExporting(true);
-    setExportProgress(0);
-    clearExport();
+    setExportProgress(0.01);
     setExportStatus("Loading ffmpeg.wasm");
-    const timing = buildExportTiming(segments, exportFps);
+    const renderFormat = exportFormat;
+    const renderFps = normalizeExportFps(exportFps);
+    const renderHeight = normalizeExportHeight(exportHeight);
+    const renderQuality = clamp(Number.isFinite(exportQuality) ? exportQuality : 76, 10, 100);
+    const renderSpeed = normalizeExportSpeed(exportSpeed);
+    const timing = buildExportTiming(segments, renderFps, renderSpeed);
     renderDurationRef.current = timing.duration;
     renderFrameCountRef.current = timing.frameCount;
     renderProgressRef.current = 0;
+    renderStartedAtRef.current = performance.now();
+    didSeeLowRenderSampleRef.current = false;
     lastLogLinesRef.current = [];
 
     let mountedInput: MountedInputFile | null = null;
-    const renderFormat = exportFormat;
-    const renderWidth = normalizeExportWidth(exportWidth);
     const outputName = `loopcut-${Date.now()}.${renderFormat}`;
 
     try {
@@ -374,7 +432,7 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       setExportStatus("Mounting video");
       mountedInput = await mountInputFile(ffmpeg, file, "render-input");
       setExportProgress(0.1);
-      const filter = buildExportFilter(renderFormat, timing, renderWidth);
+      const filter = buildExportFilter(renderFormat, timing, renderHeight, renderSpeed);
 
       setExportStatus("Rendering 10%");
       const progressArgs = [
@@ -420,7 +478,7 @@ export function useExporter({ file, segments }: UseExporterOptions) {
               "-c:v",
               "libwebp_anim",
               "-quality",
-              `${exportQuality}`,
+              `${renderQuality}`,
               "-compression_level",
               "4",
               outputName
@@ -439,6 +497,18 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       new Uint8Array(buffer).set(bytes);
       const blob = new Blob([buffer], { type: renderFormat === "gif" ? "image/gif" : "image/webp" });
       const resultUrl = URL.createObjectURL(blob);
+      const settingsStillMatch =
+        exportFormatRef.current === renderFormat &&
+        exportFpsRef.current === renderFps &&
+        exportHeightRef.current === renderHeight &&
+        exportQualityRef.current === renderQuality &&
+        exportSpeedRef.current === renderSpeed;
+
+      if (!settingsStillMatch) {
+        URL.revokeObjectURL(resultUrl);
+        setExportStatus("Settings changed. Render again.");
+        return;
+      }
 
       setExportUrl(resultUrl);
       setExportResultFormat(renderFormat);
@@ -456,15 +526,18 @@ export function useExporter({ file, segments }: UseExporterOptions) {
       renderDurationRef.current = 0;
       renderFrameCountRef.current = 0;
       renderProgressRef.current = 0;
+      renderStartedAtRef.current = 0;
+      didSeeLowRenderSampleRef.current = false;
       setIsExporting(false);
     }
   }, [
     buildExportFilter,
-    clearExport,
+    clearExportResult,
     exportFormat,
     exportFps,
+    exportHeight,
     exportQuality,
-    exportWidth,
+    exportSpeed,
     file,
     isExporting,
     loadFFmpeg,
@@ -477,10 +550,12 @@ export function useExporter({ file, segments }: UseExporterOptions) {
     setExportFormat,
     exportFps,
     setExportFps,
-    exportWidth,
-    setExportWidth,
+    exportHeight,
+    setExportHeight,
     exportQuality,
     setExportQuality,
+    exportSpeed,
+    setExportSpeed,
     isExporting,
     exportProgress,
     exportStatus,

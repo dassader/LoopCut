@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { DEFAULT_FPS } from "../../constants";
 import { clamp } from "../../lib/math";
 import { Field } from "../ui/Field";
+import { NumberInput } from "../ui/NumberInput";
 import { PanelGroup } from "../ui/PanelGroup";
 
 type TimingPanelProps = {
@@ -13,12 +14,12 @@ export function TimingPanel({ fps, setFps }: TimingPanelProps) {
   return (
     <PanelGroup title="Timing">
       <Field label="FPS step">
-        <input
+        <NumberInput
           max={120}
           min={1}
-          onChange={(event) => setFps(clamp(Number(event.target.value) || DEFAULT_FPS, 1, 120))}
+          normalize={(value) => clamp(value || DEFAULT_FPS, 1, 120)}
+          onCommit={setFps}
           step="0.001"
-          type="number"
           value={fps}
         />
       </Field>

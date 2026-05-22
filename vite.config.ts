@@ -28,8 +28,8 @@ export default defineConfig({
         ...maskableIconAssets
       ],
       manifest: {
-        name: "LoopCut",
-        short_name: "LoopCut",
+        name: "Loop Cut",
+        short_name: "Loop Cut",
         description: "Frame-accurate video cutting and animated WebP/GIF export.",
         theme_color: "#11100f",
         background_color: "#11100f",

@@ -8,7 +8,18 @@ import { VideoViewer } from "./components/viewer/VideoViewer";
 import { useExporter } from "./hooks/useExporter";
 import { useThumbnails } from "./hooks/useThumbnails";
 import { useVideoEditor } from "./hooks/useVideoEditor";
-import { MIN_EXPORT_WIDTH } from "./constants";
+import { EXPORT_HEIGHT_PRESETS } from "./constants";
+
+const DEFAULT_EXPORT_HEIGHT = 720;
+
+const chooseInitialExportHeight = (sourceHeight: number) => {
+  const targetHeight = Math.min(sourceHeight, DEFAULT_EXPORT_HEIGHT);
+
+  return EXPORT_HEIGHT_PRESETS.reduce(
+    (best, height) => (height <= targetHeight ? height : best),
+    EXPORT_HEIGHT_PRESETS[0]
+  );
+};
 
 function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -18,16 +29,16 @@ function App() {
     segments: editor.segments
   });
   const { thumbnails } = useThumbnails(editor.videoUrl, editor.duration);
-  const { setExportWidth } = exporter;
-  const { sourceWidth } = editor;
+  const { setExportHeight } = exporter;
+  const { sourceHeight } = editor;
 
   useEffect(() => {
-    if (!sourceWidth) {
+    if (!sourceHeight) {
       return;
     }
 
-    setExportWidth(Math.max(MIN_EXPORT_WIDTH, sourceWidth));
-  }, [setExportWidth, sourceWidth]);
+    setExportHeight(chooseInitialExportHeight(sourceHeight));
+  }, [setExportHeight, sourceHeight]);
 
   const chooseVideo = () => fileInputRef.current?.click();
 
@@ -79,17 +90,19 @@ function App() {
             exportProgress={exporter.exportProgress}
             exportQuality={exporter.exportQuality}
             exportResultFormat={exporter.exportResultFormat}
+            exportSpeed={exporter.exportSpeed}
             exportStatus={exporter.exportStatus}
             exportTimeline={exporter.exportTimeline}
             exportUrl={exporter.exportUrl}
-            exportWidth={exporter.exportWidth}
+            exportHeight={exporter.exportHeight}
             hasFile={Boolean(editor.file)}
             isExporting={exporter.isExporting}
             segmentsCount={editor.segments.length}
             setExportFormat={exporter.setExportFormat}
             setExportFps={exporter.setExportFps}
             setExportQuality={exporter.setExportQuality}
-            setExportWidth={exporter.setExportWidth}
+            setExportSpeed={exporter.setExportSpeed}
+            setExportHeight={exporter.setExportHeight}
           />
         </SidePanel>
       </section>

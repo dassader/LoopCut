@@ -1,4 +1,4 @@
-import { Upload } from "lucide-react";
+import { Info, Upload } from "lucide-react";
 import type { RefObject } from "react";
 
 type VideoViewerProps = {
@@ -43,6 +43,10 @@ export function VideoViewer({
         <button className="emptyPicker" onClick={onChooseVideo} type="button">
           <Upload size={28} />
           <span>Choose video</span>
+          <span className="emptyPickerHint">
+            <Info size={14} />
+            Press space to cut
+          </span>
         </button>
       )}
     </section>

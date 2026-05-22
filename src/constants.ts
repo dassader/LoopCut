@@ -1,8 +1,12 @@
 export const MIN_ZOOM = 36;
 export const MAX_ZOOM = 360;
 export const MIN_CLIP_SECONDS = 0.08;
-export const MIN_EXPORT_WIDTH = 120;
-export const DEFAULT_FPS = 25;
+export const EXPORT_FPS_PRESETS = [12, 15, 24, 30, 60] as const;
+export const EXPORT_HEIGHT_PRESETS = [240, 360, 480, 720, 1080, 1440, 2160] as const;
+export const MIN_EXPORT_SPEED = 0.25;
+export const MAX_EXPORT_SPEED = 4;
+export const DEFAULT_FPS = 5;
+export const DEFAULT_EXPORT_FPS = 24;
 export const TIMELINE_CLIP_GAP = 5;
 export const TIMELINE_PADDING_X = 12;
 

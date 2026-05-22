@@ -117,7 +117,6 @@ export function Timeline({
 
           {hasVideo && segments.length ? (
             <div className="playhead" style={{ left: playheadX }}>
-              <div className="playheadCap" />
               <div className="playheadLine" />
             </div>
           ) : null}

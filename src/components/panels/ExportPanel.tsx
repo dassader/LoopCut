@@ -1,6 +1,6 @@
 import { Download, Loader2 } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
-import { DEFAULT_FPS, MIN_EXPORT_WIDTH } from "../../constants";
+import { EXPORT_FPS_PRESETS, EXPORT_HEIGHT_PRESETS, MAX_EXPORT_SPEED, MIN_EXPORT_SPEED } from "../../constants";
 import { clamp } from "../../lib/math";
 import type { ExportFormat } from "../../types";
 import { ExportButton } from "../ui/Buttons";
@@ -9,23 +9,27 @@ import { PanelGroup } from "../ui/PanelGroup";
 import { ProgressBar } from "../ui/ProgressBar";
 import { SegmentedControl } from "../ui/SegmentedControl";
 
+const SPEED_SLIDER_RANGE = 2;
+
 type ExportPanelProps = {
   exportFormat: ExportFormat;
   exportFps: number;
   exportProgress: number;
   exportQuality: number;
   exportResultFormat: ExportFormat | null;
+  exportSpeed: number;
   exportStatus: string;
   exportTimeline: () => void;
   exportUrl: string | null;
-  exportWidth: number;
+  exportHeight: number;
   hasFile: boolean;
   isExporting: boolean;
   segmentsCount: number;
   setExportFormat: (format: ExportFormat) => void;
   setExportFps: Dispatch<SetStateAction<number>>;
+  setExportHeight: Dispatch<SetStateAction<number>>;
   setExportQuality: Dispatch<SetStateAction<number>>;
-  setExportWidth: Dispatch<SetStateAction<number>>;
+  setExportSpeed: Dispatch<SetStateAction<number>>;
 };
 
 export function ExportPanel({
@@ -34,25 +38,29 @@ export function ExportPanel({
   exportProgress,
   exportQuality,
   exportResultFormat,
+  exportSpeed,
   exportStatus,
   exportTimeline,
   exportUrl,
-  exportWidth,
+  exportHeight,
   hasFile,
   isExporting,
   segmentsCount,
   setExportFormat,
   setExportFps,
+  setExportHeight,
   setExportQuality,
-  setExportWidth
+  setExportSpeed
 }: ExportPanelProps) {
   const shouldShowProgress = isExporting && exportProgress > 0;
   const shouldShowStatus = isExporting || (Boolean(exportStatus) && exportStatus !== "Ready");
   const downloadUrl = exportResultFormat === exportFormat ? exportUrl : null;
+  const speedSliderValue = clamp((Math.log2(exportSpeed) / SPEED_SLIDER_RANGE) * 100, -100, 100);
 
   return (
     <PanelGroup title="Export">
       <SegmentedControl
+        disabled={isExporting}
         onChange={setExportFormat}
         options={[
           { label: "WebP", value: "webp" },
@@ -61,35 +69,54 @@ export function ExportPanel({
         value={exportFormat}
       />
       <Field label="FPS">
-        <input
-          max={120}
-          min={4}
-          onChange={(event) => setExportFps(clamp(Number(event.target.value) || DEFAULT_FPS, 4, 120))}
-          step="0.001"
-          type="number"
-          value={exportFps}
-        />
+        <select disabled={isExporting} onChange={(event) => setExportFps(Number(event.target.value))} value={exportFps}>
+          {EXPORT_FPS_PRESETS.map((fps) => (
+            <option key={fps} value={fps}>
+              {fps}
+            </option>
+          ))}
+        </select>
       </Field>
-      <Field label="Width">
-        <input
-          min={MIN_EXPORT_WIDTH}
-          onChange={(event) =>
-            setExportWidth(Math.max(MIN_EXPORT_WIDTH, Math.round(Number(event.target.value) || 720)))
-          }
-          step={2}
-          type="number"
-          value={exportWidth}
-        />
+      <Field label="Height">
+        <select disabled={isExporting} onChange={(event) => setExportHeight(Number(event.target.value))} value={exportHeight}>
+          {EXPORT_HEIGHT_PRESETS.map((height) => (
+            <option key={height} value={height}>
+              {height}p
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label="Quality">
         <input
-          disabled={exportFormat === "gif"}
+          disabled={exportFormat === "gif" || isExporting}
           max={100}
           min={10}
           onChange={(event) => setExportQuality(clamp(Number(event.target.value) || 76, 10, 100))}
           type="range"
           value={exportQuality}
         />
+      </Field>
+      <Field label="Speed">
+        <div className="rangeValue">
+          <input
+            disabled={isExporting}
+            max={100}
+            min={-100}
+            onChange={(event) =>
+              setExportSpeed(
+                clamp(
+                  2 ** ((Number(event.target.value) / 100) * SPEED_SLIDER_RANGE),
+                  MIN_EXPORT_SPEED,
+                  MAX_EXPORT_SPEED
+                )
+              )
+            }
+            step={5}
+            type="range"
+            value={speedSliderValue}
+          />
+          <span>{exportSpeed.toFixed(2).replace(/\.?0+$/, "")}x</span>
+        </div>
       </Field>
       <ExportButton disabled={!hasFile || !segmentsCount || isExporting} onClick={exportTimeline}>
         {isExporting ? <Loader2 className="spin" size={17} /> : <Download size={17} />}

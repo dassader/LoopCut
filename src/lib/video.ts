@@ -80,4 +80,3 @@ export async function createThumbnails(url: string, duration: number, signal: Ab
 
   return thumbnails;
 }
-

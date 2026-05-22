@@ -1,0 +1,609 @@
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f4f1ea;
+  background: #11100f;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --panel: #1b1a18;
+  --panel-soft: #24221f;
+  --line: #3a3731;
+  --text: #f4f1ea;
+  --muted: #aaa49a;
+  --red: #e24848;
+  --red-dark: #8f2828;
+  --teal: #26a998;
+  --gold: #d0a13a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 168px;
+  height: 100vh;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 180px),
+    #11100f;
+}
+
+.zoomControl,
+.timelineEditControls,
+.viewerHud,
+.downloadLink,
+.exportButton,
+.primaryButton,
+.toolButton,
+.iconButton,
+.clipGrip {
+  display: flex;
+  align-items: center;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.toolButton,
+.primaryButton,
+.exportButton,
+.iconButton,
+.emptyPicker,
+.downloadLink {
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.toolButton,
+.primaryButton,
+.exportButton,
+.downloadLink {
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  text-decoration: none;
+}
+
+.toolButton {
+  background: #2c2925;
+  border: 1px solid #49443d;
+}
+
+.primaryButton,
+.exportButton {
+  background: var(--red);
+  border: 1px solid #f06464;
+}
+
+.toolButton:hover,
+.primaryButton:hover,
+.exportButton:hover,
+.iconButton:hover,
+.downloadLink:hover {
+  transform: translateY(-1px);
+}
+
+.toolButton:disabled,
+.primaryButton:disabled,
+.exportButton:disabled,
+.iconButton:disabled,
+.field input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  min-height: 0;
+}
+
+.viewer {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    #0a0a0a;
+  background-size: 48px 48px;
+  overflow: hidden;
+}
+
+.viewerLoaded {
+  background: #000000;
+}
+
+.video {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  background: #000000;
+}
+
+.emptyPicker {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  width: min(280px, 76vw);
+  aspect-ratio: 16 / 9;
+  color: #f7efe7;
+  background: #24221f;
+  border: 1px dashed #6a6258;
+}
+
+.emptyPicker svg {
+  color: var(--gold);
+}
+
+.viewerHud {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  gap: 12px;
+  max-width: calc(100% - 28px);
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #f7efe7;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.viewerHud span {
+  min-width: 0;
+  max-width: min(42vw, 420px);
+  overflow: hidden;
+  color: #c9c1b7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidePanel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border-left: 1px solid var(--line);
+  background: #171613;
+  overflow-y: auto;
+}
+
+.panelGroup {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panelGroup:last-child {
+  border-bottom: 0;
+}
+
+.groupTitle {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.iconButton {
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: #2a2824;
+  border: 1px solid #454039;
+}
+
+.iconButton.danger {
+  color: #ffd6d6;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: #d2cbc2;
+  font-size: 13px;
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  color: var(--text);
+  background: #11100f;
+  border: 1px solid #464139;
+  border-radius: 6px;
+}
+
+.field input[type="range"] {
+  padding: 0;
+  accent-color: var(--red);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 36px;
+  padding: 3px;
+  border: 1px solid #47423a;
+  border-radius: 8px;
+  background: #11100f;
+}
+
+.segmented button {
+  min-width: 0;
+  color: #cfc7bd;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  color: #ffffff;
+  background: #3b3630;
+}
+
+.exportButton,
+.downloadLink {
+  justify-content: center;
+  width: 100%;
+}
+
+.progressTrack {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #171f1a;
+  border: 1px solid rgba(71, 126, 85, 0.28);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1fbf64, #42e38a);
+  box-shadow:
+    0 0 10px rgba(66, 227, 138, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: width 0.22s ease;
+}
+
+.exportStatus {
+  min-height: 18px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloadLink {
+  color: #0c1514;
+  background: var(--teal);
+  font-weight: 760;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.timelineArea {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  background: #161512;
+  display: grid;
+  grid-template-rows: 34px minmax(0, 1fr);
+}
+
+.timelineControlsRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(160px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.zoomControl {
+  gap: 8px;
+  width: min(260px, 44vw);
+  color: #bdb4aa;
+}
+
+.timelineZoomControl {
+  grid-column: 3;
+  justify-self: end;
+  height: 100%;
+  width: min(230px, 42vw);
+}
+
+.timelineEditControls {
+  grid-column: 2;
+  justify-self: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.timelineEditControls .iconButton {
+  width: 28px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.timelineEditControls .primaryButton {
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.zoomControl input {
+  width: 100%;
+  accent-color: var(--teal);
+}
+
+.timelineViewport {
+  position: relative;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-color: #5a554d #171613;
+  scrollbar-width: thin;
+  cursor: crosshair;
+}
+
+.timelineContent {
+  position: relative;
+  height: 100%;
+  min-width: 100%;
+}
+
+.clipLane {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  padding: 12px 12px 10px;
+  box-sizing: border-box;
+}
+
+.clip {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 82px;
+  overflow: hidden;
+  border: 1px solid #514b43;
+  border-radius: 8px;
+  background: #24211d;
+  cursor: grab;
+}
+
+.clip:active {
+  cursor: grabbing;
+}
+
+.clip.selected {
+  border-color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 0 0 2px rgba(226, 72, 72, 0.36);
+}
+
+.clip + .clip {
+  margin-left: 5px;
+}
+
+.clipColor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  z-index: 2;
+}
+
+.clipGrip {
+  position: absolute;
+  top: 10px;
+  left: 6px;
+  z-index: 3;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.76);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.clipFilmstrip {
+  position: absolute;
+  inset: 4px 0 0;
+  overflow: hidden;
+}
+
+.clipThumb {
+  position: absolute;
+  top: 0;
+  width: 96px;
+  height: 78px;
+  object-fit: cover;
+  transform: translateX(-50%);
+  opacity: 0.72;
+  filter: saturate(1.04) contrast(1.03);
+}
+
+.dropLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 3px;
+  background: var(--teal);
+}
+
+.dropLine.before {
+  left: 0;
+}
+
+.dropLine.after {
+  right: 0;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 0;
+  pointer-events: none;
+}
+
+.playheadCap {
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 13px;
+  height: 13px;
+  background: var(--red);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.playheadLine {
+  position: absolute;
+  top: 11px;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: var(--red);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 720px) {
+  .app {
+    grid-template-rows: minmax(0, 1fr) 168px;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .sidePanel {
+    display: flex;
+    gap: 12px;
+    max-height: 178px;
+    padding: 10px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .panelGroup {
+    min-width: 226px;
+    padding-right: 12px;
+    padding-bottom: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .panelGroup:last-child {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolButton span {
+    display: none;
+  }
+
+  .zoomControl {
+    width: 42vw;
+  }
+
+  .timelineControlsRow {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .timelineZoomControl {
+    grid-column: 2;
+    width: min(134px, 42vw);
+  }
+
+  .timelineEditControls {
+    grid-column: 1;
+    justify-self: start;
+    gap: 5px;
+  }
+
+  .timelineEditControls .primaryButton {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .timelineEditControls .primaryButton span {
+    display: none;
+  }
+
+  .viewerHud {
+    left: 10px;
+    right: 10px;
+    justify-content: space-between;
+  }
+}
